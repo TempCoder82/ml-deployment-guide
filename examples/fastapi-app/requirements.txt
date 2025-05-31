@@ -1,0 +1,40 @@
+# examples/fastapi-app/requirements.txt
+
+# FastAPI and server
+fastapi==0.104.1
+uvicorn[standard]==0.24.0
+python-multipart==0.0.6
+
+# ML frameworks
+torch==2.1.0
+torchvision==0.16.0
+numpy==1.24.3
+
+# Monitoring and metrics
+psutil==5.9.6
+gputil==1.4.0
+
+# Data validation
+pydantic==2.4.2
+
+# Async support
+aiofiles==23.2.1
+
+# For cloud providers (optional)
+# Uncomment based on your deployment target
+
+# AWS
+# boto3==1.28.84
+
+# GCP
+# google-cloud-storage==2.10.0
+
+# Azure
+# azure-storage-blob==12.19.0
+# azure-identity==1.15.0
+
+# Logging and monitoring (optional)
+# prometheus-client==0.18.0
+# opentelemetry-api==1.21.0
+# opentelemetry-sdk==1.21.0
+# opentelemetry-instrumentation-fastapi==0.42b0

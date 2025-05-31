@@ -686,4 +686,4 @@ gcloud billing accounts list
 
 Congratulations! You've successfully deployed your ML model to GCP Cloud Run with GPU support. Your model is now accessible via a scalable, secure API endpoint.
 
-[← Back to Main Guide](./README.md) | [AWS Fargate Guide →](./aws-fargate-guide.md)
+[← Back to Main Guide](./README.md) | [AWS Fargate Guide →](./aws-fargate-deployment.md)

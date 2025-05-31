@@ -1,0 +1,94 @@
+# examples/deployment-configs/gcp/cloudbuild.yaml
+# Cloud Build configuration for GCP
+
+substitutions:
+  _SERVICE_NAME: ml-model-service
+  _REGION: us-central1
+  _IMAGE_NAME: ml-model
+  _MIN_INSTANCES: '0'
+  _MAX_INSTANCES: '10'
+  _MEMORY: '8Gi'
+  _CPU: '4'
+  _GPU_COUNT: '1'
+  _GPU_TYPE: 'nvidia-tesla-t4'
+
+steps:
+  # Build the container image
+  - name: 'gcr.io/cloud-builders/docker'
+    args:
+      - 'build'
+      - '--build-arg'
+      - 'BUILDKIT_INLINE_CACHE=1'
+      - '--cache-from'
+      - 'gcr.io/$PROJECT_ID/${_IMAGE_NAME}:latest'
+      - '-t'
+      - 'gcr.io/$PROJECT_ID/${_IMAGE_NAME}:$COMMIT_SHA'
+      - '-t'
+      - 'gcr.io/$PROJECT_ID/${_IMAGE_NAME}:latest'
+      - '-f'
+      - 'Dockerfile.production'
+      - '.'
+
+  # Push to Container Registry
+  - name: 'gcr.io/cloud-builders/docker'
+    args:
+      - 'push'
+      - '--all-tags'
+      - 'gcr.io/$PROJECT_ID/${_IMAGE_NAME}'
+
+  # Deploy to Cloud Run
+  - name: 'gcr.io/google.com/cloudsdktool/cloud-sdk'
+    entrypoint: gcloud
+    args:
+      - 'run'
+      - 'deploy'
+      - '${_SERVICE_NAME}'
+      - '--image=gcr.io/$PROJECT_ID/${_IMAGE_NAME}:$COMMIT_SHA'
+      - '--region=${_REGION}'
+      - '--platform=managed'
+      - '--allow-unauthenticated'
+      - '--memory=${_MEMORY}'
+      - '--cpu=${_CPU}'
+      - '--gpu=${_GPU_COUNT}'
+      - '--gpu-type=${_GPU_TYPE}'
+      - '--min-instances=${_MIN_INSTANCES}'
+      - '--max-instances=${_MAX_INSTANCES}'
+      - '--timeout=300'
+      - '--concurrency=1'
+      - '--set-env-vars=MODEL_VERSION=$COMMIT_SHA'
+      - '--set-env-vars=ENVIRONMENT=production'
+      - '--labels=version=$COMMIT_SHA,team=ml,service=inference'
+
+  # Run smoke tests
+  - name: 'gcr.io/cloud-builders/gcloud'
+    entrypoint: 'bash'
+    args:
+      - '-c'
+      - |
+        apt-get update && apt-get install -y curl jq
+        SERVICE_URL=$(gcloud run services describe ${_SERVICE_NAME} --region ${_REGION} --format 'value(status.url)')
+        echo "Testing service at: $SERVICE_URL"
+        
+        # Health check
+        curl -f "$SERVICE_URL/health" || exit 1
+        
+        # Test prediction
+        RESPONSE=$(curl -s -X POST "$SERVICE_URL/predict" \
+          -H "Content-Type: application/json" \
+          -d '{"input_data": [1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0, 9.0, 10.0]}')
+        
+        echo "Response: $RESPONSE"
+        echo "$RESPONSE" | jq .prediction || exit 1
+
+# Build timeout
+timeout: 1200s
+
+# Build logs bucket
+options:
+  logging: GCS_ONLY
+  logsBucket: 'gs://${PROJECT_ID}_cloudbuild_logs'
+
+# Artifacts to store
+images:
+  - 'gcr.io/$PROJECT_ID/${_IMAGE_NAME}:$COMMIT_SHA'
+  - 'gcr.io/$PROJECT_ID/${_IMAGE_NAME}:latest'
